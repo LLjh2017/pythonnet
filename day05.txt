@@ -1,0 +1,300 @@
+2018    10.11    星期四
+
+
+
+
+1.事务和事务回滚
+  1.定义:一件事从开始发生到结束的过程
+  2.作用:确保数据的一致性
+  3.事务和事务回滚应用
+    SQL命令默认自动提交到数据库执行
+    show variables like "autocommit";
+    1.开启事务 
+      mysql> begin;
+    2.终止事务
+      mysql> commit; | rollback;回滚
+    3.注意
+      事务只针对于表记录操作(增删改),对库和表的操作无效
+
+2.与python交互
+  1.Python3
+    1.模块名:pymysql
+    2.安装
+      1.在线
+        sudo pip3 install pymysql(==0.7.11指定版本)
+      2.离线
+        pymysql-0.7.11.tar.gz
+        $ tar -xf pymysql-0.7.11.tar.gz
+        $ cd pymysql0.7.11
+        $ python3 setup.py install
+
+      ### 安装pip3 ###
+        sudo apt-get install python3-pip
+
+  2.python2
+    1.模块名:MySQLdb
+    2.安装: sudo pip install mysql-python 
+
+1.创建库db5,utf8
+  create database db5 character set utf8;
+2.创建表t1
+  use db5;
+  create table t1(
+    id int primary key auto_increment,
+    name varchar(20),
+    score float(5,2)
+  )charset=utf8;
+3.插入三条记录
+  insert into t1 values
+  (1,'李白',60),
+  (2,'杜甫',70),
+  (3,'白居易',80);
+在db5库中插入(4,'王维',80)
+  import pymysql
+  # 1.创建数据库连接对象
+  db=pymysql.connect(host='localhost',
+                     user='root',
+                     password='123456',
+                     database='db5',
+                     charset='utf8')
+  # 2.创建游标对象(利用数据库的对象)
+  cursor=db.cursor()
+  # 3.执行SQL命令(利用游标对象)
+  cursor.execute('insert into t1 values\
+                (4,"王维",80);')
+  # 4.提交到数据库执行(commit())
+  db.commit()
+  print('ok')
+  # 5.关闭游标对象
+  cursor.close()
+  # 6.关闭数据库连接对象
+  db.close()
+
+  3.环境准备
+  4.pymysql使用流程
+    1.数据库连接对象:db=pymysql.connect(...)
+    2.游标对象     :cur=db.cursor()
+    3.执行命令     :cur.execute('sql命令')
+    4.提交        :db.commit()
+    5.关闭游标     :cur.close()
+    6.关闭数据库连接:db.close()
+  5.数据库连接对象(db)方法
+    1. db.commit()      :提交到数据库执行
+    2. db.rollback()    :回滚
+    3. db.close()       :断开与数据库连接
+    4. db.cursor()      :创建游标对象
+  6.游标对象(cur)方法
+    1. cur.execute(sql命令)   :执行SQL命令
+    2. cur.close()           :关闭游标对象
+    3. cur.fetchone()        :取第一条(查询)
+    4. cur.fetchmany(n)      :取第n条(查询)
+    5. cur.fetchall          :取所有记录(查询)
+  7.connect()连接对象的参数
+    1. host    :主机地址
+    2. user    :用户名
+    3. password:密码
+    4. database:库名
+    5. charset :字符集(推荐utf8)
+    6. port    :端口号(3306)
+import pymysql
+db=pymysql.connect(host='localhost',
+                   user='root',
+                   password='123456',
+                   database='db5',
+                   charset='utf8')
+cursor=db.cursor()
+try:
+    # 增加
+    ins='insert into t1(name,score) values("小姐姐",88)'
+    cursor.execute(ins)
+    # 修改
+    upd='update t1 set score=100 where name="李白"'
+    cursor.execute(upd)
+    # 删除
+    dele='delete from t1 where name="王维"'
+    cursor.execute(dele))
+    db.commit()
+    print('ok')
+except Exception as e:
+    db.rollback()
+    print('failed',e)
+cursor.close()
+db.close()
+
+
+import pymysql
+db=pymysql.connect(host='localhost',
+                   user='root',
+                   password='123456',
+                   database='db5',
+                   charset='utf8')
+cursor=db.cursor()
+try:
+    sel="select * from t1"
+    # 得到一堆查询结果,放到cursor游标对象里
+    cursor.execute(sel)
+    # fetchone取走游标对象里的1条记录
+    data1=cursor.fetchone()
+    print(data1)
+    print("*"*40)
+    # 取走游标对象里的多条记录
+    data2=cursor.fetchmany(2)
+    print(data2)
+    print("*"*40)
+    # 取走游标对象中剩下的表记录
+    data3=cursor.fetchall()
+    print(data3)
+except Exception as e:
+    print('Failed',e)
+cursor.close()
+db.close()
+
+
+import pymysql
+db=pymysql.connect(host='localhost',
+                   user='root',
+                   password='123456',
+                   database='db5',
+                   charset='utf8')
+cursor=db.cursor()
+while True:
+    c=input('按q退出，按回车输入学生信息：')
+    if c.strip().lower()=='q':
+        break
+    name=input('请输入姓名：')
+    score=input('请输入成绩：')
+    try:
+        ins='insert into t1(name,score) values(%s,%s)'
+        cursor.execute(ins,[name,score])
+        db.commit()
+        print('ok')
+    except Exception as e:
+        db.rollback()
+        print('Failed',e)
+cursor.close()
+db.close()
+
+
+from pymysql import *
+class Mysqlpython:
+    def __init__(self,database,host='localhost',
+                 user='root',password='123456',
+                 charset='utf8',port=3306):
+        self.database=database
+        self.host=host
+        self.user=user
+        self.password=password
+        self.charset=charset
+        self.port=port
+    # 创建数据连接和游标对象
+    def open(self):
+        self.db=connect(host=self.host,
+                        user=self.user,
+                        password=self.password,
+                        port=self.port,
+                        database=self.database,
+                        charset=self.charset)
+        self.cur=self.db.cursor()
+    # 关闭游标对象和数据库连接对象
+    def close(self):
+        self.cur.close()
+        self.db.close()
+
+    # 执行sql命令
+    def zhixing(self,sql,L=[]):
+        self.open() 
+        self.cur.execute(sql,L)
+        self.db.commit()
+        self.close()
+    
+    # 查询功能
+    def all(self,sql,L=[]):
+        self.open()
+        self.cur.execute(sql,L)
+        result=self.cur.fetchall()
+        return result
+if __name__=="__main__":
+    sqlh=Mysqlpython("db5")
+    # upd='update t1 set score=100 where name="小哥哥"'
+    # sqlh.zhixing(upd)
+    sel="select * from t1"
+    r=sqlh.all(sel)
+    print(r)
+
+
+from mysqlpython import Mysqlpython
+sql=Mysqlpython("db5")
+dele="delete from t1 where name='小孩子'"
+sql.zhixing(dele)
+
+
+3.ORM(Object Relation Mapping 对象关系映射)
+  1.定义
+    把对象模型映射到MySQL数据库中
+  2.sqlalchemy 安装
+    在线： sudo pip3 install sqlalchemy
+    离线：
+      $: tar -xf sql...tar.gz
+      $: cd sqlalchemy
+      $: sudo python3 setup.py install
+  3.映射类型
+    1.python类(class) <----> 数据库中表
+      class user ...t123
+    2.python中类属性 <---> 数据库中表字段(id...)
+      id=Column(Integer)
+    3.关系映射
+      1:1  :  主外键关联，添加唯一约束
+      1:n  :  主外键关联
+      m:n  :  通过中间表实现
+    每个老师在研究什么课题
+      select laoshi.lname,keti.kname from laoshi
+      inner join zhongjian on laoshi.id=zhongjian.l_id
+      inner join keti on zhongjian.k_id=keti.id;
+    魏老师在研究什么课题
+      select laoshi.lname,keti.kname from laoshi 
+      inner join zhongjian on laoshi.id=zhongjian.l_id
+      inner join keti on zhongjian.k_id=keti.id 
+      where id=1;
+  4.示例：
+    1.在db5库创建表t123,表中字段有
+      id 整形,设置为主键,自增长
+      name 字符类型,宽度为20
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column,Integer,String
+# session会话
+from sqlalchemy.orm import sessionmaker
+# 创建库连接对象
+engine=create_engine(
+    "mysql+pymysql://root:123456@localhost/db5")
+# 创建orm基类
+Base=declarative_base()
+# 创建session会话对象
+session=sessionmaker(engine)()
+
+# 继承Base
+class User(Base):
+    __tablename__='t123'
+    id=Column(Integer,primary_key=True)
+    name=Column(String(20))
+    phnumber=Column(String(11),unique=True)
+
+    # 添加表记录
+    def add_data(self):
+        p=User(id=2,name='lily',phnumber='138888888')
+        session.add(p)
+        session.commit()
+    def select_data(self):
+        result=session.query(User).filter_by(id=1).all()
+        # result是一个列表,列表是对象
+        for r in result:
+            print(r.id,r.name)
+Base.metadata.create_all(engine)
+if __name__=="__main__":
+    s=User()
+    s.add_data()
+    s.select_data()
+    
+图形界面
+  Windows:Navicat
+  Linux:Work_bench

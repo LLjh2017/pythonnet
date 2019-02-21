@@ -1,0 +1,418 @@
+2018     10.30     星期二
+
+
+
+
+修改器的使用
+  db.collection.update(query,update,upsert,multi)
+
+$set:
+  修改一个域的值,或者增加一个域
+  示例:
+    当一个域不存在时可以增加一个域
+    db.class0.update({name:'Jame'},{$set:{sex:'m'}})
+
+$unset:
+  删除一个域
+  示例:
+    当一个域存在时可以删除一个域
+    db.class0.update({name:'Tom'},{$unset:{sex:''}})
+
+$rename:
+  修改一个域的域名
+  示例：
+    修改sex域名为gender
+    db.class0.updateMany({},{$rename:{sex:'gender'}})
+
+$setOnInsert:
+  当update插入文档时可以作为补充内容插入数据
+  示例：
+    插入新文档小李 gender:'w'也会作为文档的域
+    db.class0.update({name:'xiaoli'},{$set:{age:20},
+                     $setOnInsert:{gender:'w'}},true)
+
+$inc:
+  加法修改器
+  示例：
+    把所有age域的值加1
+    db.class0.updateMany({},{$inc:{age:1}})
+
+$mul:
+  乘法修改器
+  示例：
+    把所有age域的值乘以0.5
+    db.class0.updateMany({},{$mul:{age:0.5}})
+  注意：
+    $mul $inc 的值可以是 整数 小数 正数 负数
+
+$max:
+  指定某个域的值如果小于规定值则改为规定值，大于规定值则不变
+  示例：
+    如果Alex的age小于18则改为18，大于18则不变
+    db.class0.update({name:'Alex'},{$max:{age:18}})
+
+$min:
+  指定某个域的值如果大于规定值则改为规定值，小于规定值则不变
+  示例：
+    如果Alex的age大于20则改为20，小于20则不变
+    db.class0.update({name:'Alex'},{$min:{age:20}})
+
+数组修改器
+$push:
+  向数组中添加一项
+  示例：
+    向score数组中增加5
+    db.class3.update({name:'小明'},{$push:{score:5}})
+
+$pushAll:
+  向数组中增加多项
+  示例：
+    向score数组中增加10,5
+    db.class3.update({name:'小红'},{$pushAll:{score:
+                     [10,5]}})
+
+$pull:
+  从数组中删除某一个值(如果有重复值都删除)
+  示例：
+    删除score数组中所有的5
+    db.class3.update({name:'小明'},{$pull:{score:5}})
+
+$pullAll:
+  同时从数组中删除多个值
+  示例：
+    删除score数组中所有的82,10
+    db.class3.update({name:'小红'},{$pullAll:{score:
+                     [10,82]}})
+
+$pop:
+  弹出数组一项(只能删除两端的项)
+  示例：
+    删除score数组中最后一项
+    db.class3.update({name:'小明'},{$pop:{score:1}})
+    删除score数组中第一项
+    db.class3.update({name:'小明'},{$pop:{score:-1}})
+
+$addToSet:
+  向数组中添加一项,但是不能向数组中添加已有的数值
+  示例：
+    向score数组中添加一项,如果该值存在则添加不上
+    db.class3.update({name:'小明'},{$addToSet:{score:90}})
+
+$each:
+  对多个值进行逐一操作
+  示例：
+    利用each同时添加90,10到数组
+    db.class3.update({name:'小明'},{$push:{score:
+                     {$each:[90,10]}}})
+
+$position:
+  指定位置插入数值 搭配each使用
+  示例：
+    在数组第一个位置插入55
+    db.class3.update({name:'小明'},{$push:{score:
+                     {$each:[55],$position:1}}})
+
+$sort:
+  对数组进行排序,搭配each使用
+  示例：
+    对数组进行升序排序
+    db.class3.update({name:'小亮'},{$push:{score:
+                     {$each:[]，$sort:1}}})
+
+
+时间类型
+  获取当前时间：
+    1.new Date() 自动生成当前时间
+    示例：
+      db.class1.insert({book:'Python',date:new Date()})
+    2.ISODate()  自动获取当前时间
+    示例： 
+      db.class1.insert({book:'English',date:ISODate()}) 
+    3.Date() 获取系统时间生成时间字符串
+    示例：
+      db.class1.insert({book:'Math',date:Date()})
+  获取任意时间：
+    ISODate()
+      功能：将指定的时间转换为MongoDB的存储时间类型
+      参数：指定的时间
+           "2018-01-01 11:11:11"
+           "20180101 11:11:11"
+           "20180101"
+    示例：
+      将字符串中的时间转换为ISODate存储
+      db.class1.insert({book:'yu',date:ISODate(
+                          '2018-01-01 11:11:11')})
+
+时间戳
+  valueOf()
+    将标准时间转换为时间戳
+  示例：
+    记录当前标准时间的时间戳
+    db.class1.insert({book:'En',date:ISODate().
+                       valueOf()})
+
+Null类型数据
+  值：null
+  1.表示某个域的值为空
+    示例：
+      表示price域的值为空
+      db.class1.insert({book:'Ep',price:null})
+  2.表示某个域不存在
+    示例：
+      查找gender域不存在的文档(或者gender域值为null)
+      db.class0.find({gender:null},{_id:0})
+
+内部文档(Object)
+  文档中某个域的值还是一个文档则这个文档为内部文档
+  示例：
+    当使用内部文档某个域的值时,需要用 外部文档域.内部文档域
+    的方法引用,此时需要加引号注明
+    通过book.title 进行查找
+    db.class2.find({'book.title':'狂人日记'},{_id:0})
+  示例：
+    db.class2.find({'book.title':'狂人日记'},{$set:
+                   {'book.price':46.5}})
+
+通过数组下标直接引用数组项
+  在使用数组时,可以通过 数组域.数组下标 的方式选中数组中
+  示例：
+    把小明score域第一项改为86
+    db.class3.update({name:'小明'},{$set:
+                     {'score.0':86}})
+    查找数组第一项大于80的文档
+    db.class3.find({'score.0':{$gt:80}},{_id:0})
+
+
+练习：
+  基于之前的grade 数据库
+  1.将小红的年龄修改为8岁,兴趣爱好变为跳舞画画
+    db.class.update({name:'小红'},{$set:
+            {age:8,hobby:['dance','draw']}})
+
+  2.追加小明兴趣爱好 唱歌
+    db.class.update({name:'小明'},{$push:{hobby:'sing'}})
+
+  3.小王多了兴趣爱好 吹牛 打篮球
+    db.class.update({name:'小王'},{$pushAll:
+            {hobby:['吹牛','basketball']}})
+
+  4.小李兴趣爱好要增加跑步,唱歌,但是不要和之前的兴趣重复
+    db.class.update({name:'小李'},{$addToSet:
+            {hobby:{$each:['running','sing']}}})
+
+  5.该班级所有同学年龄加1
+    db.class.updateMany({},{$inc:{age:1}})
+
+  6.删除小明的sex属性
+    db.class.update({name:'小明'},{$unset:{sex:''}})
+
+  7.删除小李兴趣中的第一个
+    db.class.update({name:'小李'},{$pop:{hobby:-1}})
+
+  8.删除小红的兴趣画画唱歌
+    db.class.update({name:'小红'},{$popAll:{hobby:
+                   ['draw','sing']}})
+
+  9.为小王增加一个域 备注：{民族:'回族',习俗:'不吃猪肉'}
+    db.class.update({name:'小王'},{$set:
+            {备注:{民族:'回族',习俗:'不吃猪肉'}}})
+
+  10.在小王的备注中增加一项 宗教:'伊斯兰教'
+    db.class.update({name:'小王'},{$set:
+                   {'备注.宗教':'伊斯兰教'}})
+
+
+索引
+  什么是索引
+    索引是建立文档所在位置的查找清单,使用索引可以方便
+    进行快速查找,减少遍历次数,提高查找效率
+  索引约束
+    1.索引本身也占用数据库空间,所以当数据量很小的时候
+      这种消耗是没有必要的
+    2.索引表需要根据数据的修改及时修改,否则索引就会不
+      和内容配套,也就失去了意义,因此如果数据库操作是
+      频繁的修改操作而不是查找操作则不适合创建索引
+
+创建索引
+  db.collection.createIndex()
+  功能：创建索引
+  参数：索引域 和 索引选项
+  示例：
+    为name域创建索引
+    db.class0.createIndex({name:1})
+
+    _id域会由系统自动创建索引
+    1表示正向索引,-1表示逆向索引
+
+查看集合中的索引
+  db.collection.getIndexes()
+
+自定义索引名
+  示例：
+    通过索引选项name定义索引名称
+    db.class0.createIndex({age:1},{name:'ageIndex'})
+
+其他创建索引方法
+  ensureIndex()
+  功能：创建索引
+  参数：同createIndex()
+  示例：
+    为book域创建索引
+    创建方法和createIndex()用法一致
+    db.class1.ensureIndex({book:1}) 
+
+  createIndexes([{},{}]) 
+  功能：同时创建多个索引
+  参数：数组中存入创建索引键值对
+  示例：
+    创建name和score两个域的索引
+    db.class3.createIndexes([{name:1},{score:-1}])
+
+删除索引
+  db.collection.dropIndex()
+  功能：删除一个索引
+  参数：索引名称或者索引键值对
+  示例：
+    通过名称删除索引
+    db.class3.dropIndex('name_1')
+    通过索引键值对删除索引
+    db.class3.dropIndex({score:-1})
+
+  db.collection.dropIndexes()
+  功能：删除集合中的所有索引(不会删除_id索引)
+  参数：没有参数
+  示例：
+    删除class0中所有索引
+    db.class0.dropIndexes()
+
+索引类型
+  复合索引：
+    根据多个域创建一个索引
+  示例：
+    根据name和age创建复合索引
+    db.class0.createIndex({name:1,age:-1})
+
+  子文档和数组索引：
+    如果对某个域创建索引,该域的值为数组或者子文档,则对
+    数组中某一项或者子文档中某个域的查找也是索引查找
+  示例：
+    对book创建索引后,该查找也为索引查找
+    db.class2.find({'book.title':'围城'})
+
+  唯一索引：
+    要求创建索引的域不能有重复的值
+    示例：
+      对name域创建唯一索引
+      db.class0.createIndex({name:1},{unique:true})
+    
+  稀疏索引：
+    会在创建索引时忽略没有指定域的索引
+    示例：
+      对gender域创建稀疏索引
+      db.class0.createIndex({gender:1},{sparse:true})
+
+聚合操作
+  对文档进行数据整理和统计
+  db.collection.aggregate()
+  功能：完成聚合操作
+  参数：聚合条件 需要配合聚合操作符使用
+
+  聚合操作符
+    $group 分组聚合  往往需要配合一定的统计操作符完成
+      统计求和： $sum 
+    示例：
+      按照gender域的值分组,统计结果叫num,方法为加和
+      db.class0.aggregate({$group:{_id:"$gender",
+                    num:{$sum:1}}})
+      按照gender域的值分组,统计年龄相加的结果叫num
+      db.class0.aggregate({$group:{_id:"$gender",
+                    num:{$sum:'$age'}}})
+
+      统计平均数： $avg
+    示例：
+      按照gender域的值分组,统计年龄的平均数结果叫num
+      db.class0.aggregate({$group:{_id:"$gender",
+                    num:{$avg:'$age'}}})
+
+      求最大值： $max
+    示例：
+      按照gender域的值分组,统计每个性别年龄的最大值num
+      db.class0.aggregate({$group:{_id:"$gender",
+                    num:{$max:'$age'}}})
+
+      求最小值：   $min
+      求第一个数：  $first
+      求最后一个数： $last
+
+$project:
+  用于格式化的显示文档内容
+  project值得用法同find中field参数
+  示例：
+    db.class0.aggregate({$project:{_id:0,name:1,
+                         age:1}})
+    按照指定名称显示文档内容
+    db.class0.aggregate({$project:{_id:0,
+                    Name:'$name',Age:'$age'}})
+
+$match:
+  筛选数据
+  match值得用法同find中query参数
+  示例：
+    筛选年龄大于19岁的文档
+    db.class0.aggregate({$match:{age:{$gt:19}}})
+
+$limit：
+  显示前几条文档
+  示例：
+    显示前三条文档
+    db.class0.aggregate({$limit:3})
+
+$skip：
+  跳过前几条文档显示后面的内容
+  示例：
+    跳过前三条文档显示后面的内容
+    db.class0.aggregate({$skip:3})
+
+$sort:
+  对所选的域排序
+  示例：
+    对文档按照年龄升序排序
+    db.class0.aggregate({$sort:{age:1}})
+
+
+聚合管道
+  指的是将多个聚合操作合并到一起完成,即将上一个聚合的
+  结果作为下一个聚合的操作对象继续操作
+  db.collection.aggregate([{聚合1},{聚合2}...])
+  示例：
+    先按照年龄排序然后通过project进行显示设置
+    db.class0.aggregate([{$sort:{age:1}},{
+                          $project:{_id:0}}])
+  
+练习：
+  1.将所有男生按照年龄排序,不显示_id
+    db.class0.aggregate([{$match:{gender:'m'}},
+         {$sort:{age:1}},{$project:{_id:0}}])
+  2.统计一下班里有名字重复的同学
+    db.class0.aggregate([{$group:{_id:'$name',
+            num:{$sum:1}}},{$match:{num:{$gt:1}}}])
+
+
+固定集合
+  指的是mongodb中创建的固定大小的集合,称之为固定集合
+  特点： 
+    1.能够淘汰早期数据
+    2.可以控制集合的大小
+    3.插入,查找速度较快
+  使用：
+    日志处理(log),临时缓存
+  创建：
+    db.createCollection(collection,{capped:true,
+                        size:10000,max:1000})
+    capped:true 创建固定集合
+    size:10000  固定集合大小 字节
+    max:1000    最多存放多少文档
+  示例：
+    创建固定集合 size:1000 max:3
+    db.createCollection('log',{capped:true,
+                        size:1000,max:3})

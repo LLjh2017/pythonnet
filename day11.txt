@@ -1,0 +1,356 @@
+2018     10.19    星期五
+
+
+
+
+进程创建注意
+  1.如果父进程创建对象后,创建子进程,子进程从父进程获取对象
+    此时父子进程在对象操作上会有一定的相互影响
+      套接字对象监听相同的端口,文件对象会使用同一个
+      偏移量
+  2.如果父进程先创建子进程,则父子进程中各自产生的对象
+    没有任何关系
+
+
+multiprocessing 模块创建进程
+  1.将需要执行的进程事件封装为函数
+  2.使用模块的Process类生成进程对象,并关联相应函数
+  3.可以通过对象属性设置进程信息
+  4.启动进程,此时会自动运行绑定的函数,作为一个进程来执行
+  5.回收进程
+
+Process()
+  功能：创建进程对象
+  参数：target 绑定的目标函数
+       name   给进程起名字,默认为Process-1
+       args   元组 给target目标函数按照位置传参
+       kwargs 字典 给target目标函数按照键值传参
+p.start()
+  功能：启动进程
+  target 绑定的函数开始执行,进程真正创建
+p.join([timeout])
+  功能：阻塞等待回收进程
+  参数：timeout 超时时间
+
+1.使用multprocessing创建进程,同样子进程复制父进程的全部
+  代码段,父子进程执行互不影响,各自有各自的运行空间,子进程
+  只执行对应的函数部分
+2.如果不使用join回收子进程则子进程会成为僵尸进程
+3.multiprocessing 中父进程往往只用来管理子进程的创建回收
+  具体事件由子进程完成
+
+from multiprocessing import Process
+from time import sleep 
+import os 
+
+def th1():
+    sleep(3)
+    print("吃饭")
+    print(os.getppid(),'--',os.getpid())
+def th2():
+    sleep(2)
+    print("睡觉")
+    print(os.getppid(),'--',os.getpid())
+def th3():
+    sleep(4)
+    print("打豆豆")
+    print(os.getppid(),'--',os.getpid())
+
+things = [th1,th2,th3]
+process=[]
+for th in things:
+    p = Process(target = th)
+    process.append(p) # 保留每次创建的进程对象
+    p.start()
+for i in process:
+    i.join()
+
+
+from multiprocessing import Process 
+from time import sleep
+
+# 带参数的进程函数
+def worker(sec,name):
+    for i in range(3):
+        sleep(sec)
+        print("I'm %s"%name)
+        print("I'm working...")
+p=Process(target=worker,args=(2,'Levi'))
+# p=Process(target=worker,kwargs={'sec':2,'name':'Levi'})
+p.start()
+p.join(4)
+print('==============')
+
+
+进程对象属性
+  p.name       进程名称
+  p.pid        进程PID号
+  p.daemon
+    默认为False   表示主进程退出不会影响子进程的执行
+    如果设置为True 此时主进程退出子进程也会退出  
+    ((在start前设置,且一般不和join一起使用))   
+  p.is_alive() 查看进程是否在生命周期
+
+from multiprocessing import Process 
+from time import sleep,ctime
+
+def tm():
+    for i in range(2):
+        sleep(2)
+        print(ctime())
+p=Process(target=tm)
+p.start()
+
+print("Process name:",p.name)
+print("Process PID:",p.pid)
+print("Process alive:",p.is_alive())
+p.join()
+print("Process alive:",p.is_alive())
+
+# 执行结果
+# Process name: Process-1
+# Process PID: 33317
+# Process alive: True
+# Wed Jan 30 17:00:16 2019
+# Wed Jan 30 17:00:18 2019
+# Process alive: False
+
+
+自定义进程类
+  1.继承Process类
+  2.编写自己的__init__添加自己的属性
+    使用super重新加载父类的__init__方法
+  3.重写run方法
+  4.使用自己的类创建进程对象
+  5.调用start()启动进程 此时会自动执行run方法
+  6.调用join()回收进程
+from multiprocessing import Process
+from time import * 
+
+class ClockProcess(Process):
+    def __init__(self,value):
+        self.value=value
+        super().__init__() # 加载父类的init
+    
+    def run(self):
+        for i in range(5):
+            print("The time is {}".format(ctime()))
+            sleep(self.value)
+
+p=ClockProcess(2)
+p.start() # 会自动运行run方法
+p.join()
+
+
+多进程的一些问题
+  优点：可以使用计算机的多核同时运行多个任务,提高了运行效率
+  缺点：进程创建删除需要消耗的系统资源较多
+
+进程池技术
+  产生原因：
+    如果有大量任务需要多进程完成,则可能要频繁的创建
+    删除进程,此时给计算机带来的压力较大
+  原理：
+    创建一定量的进程作为进程池,用来处理事件,事件处理完毕 
+    后不销毁进程,而是继续等待处理其他的事件,直到所有待处
+    理事件结束后再统一销毁进程,增加进程的重复利用,降低资
+    源消耗
+  使用方法
+    1.创建进程池,放入适当的进程
+    2.将要做的事件放入进程池等待队列
+    3.不断取事件使用进程池中的进程执行,直到所有事件处理完毕
+    4.关闭进程池,回收进程
+    from multiprocessing import Pool
+    Pool(processes)
+      功能：创建进程池对象
+      参数：processes 指定进程池中进程的数量,默认根据系
+           统自动判定
+    pool.apply_async(func,args,kwds)
+      功能：使用进程池中的进程执行相应的函数
+      参数：func 进程事件函数
+           args 元组 给func按位置传参
+           kwds 字典 给func按键值传参
+      返回值：返回函数事件对象
+
+    pool.apply(func,args,kwds)
+      功能：使用进程池中的进程执行相应的函数
+      参数：func 进程事件函数
+           args 元组 给func按位置传参
+           kwds 字典 给func按键值传参
+
+    pool.close()
+      功能：关闭进程池,不能再添加新的事件
+    pool.join()
+      功能：阻塞 等待回收进程池进程
+
+
+from multiprocessing import Pool
+from time import sleep,ctime
+
+def worker(msg):
+    sleep(2)
+    print(msg)
+    return ctime()
+# 创建进程池
+pool=Pool()
+
+# 向进程池添加事件
+result=[]
+for i in range(10):
+    msg="hello %d"%i
+    # 异步执行方式
+    r=pool.apply_async(func=worker,args=(msg,))
+    result.append(r) # 存储函数事件对象
+    # 同步执行：一个一个执行
+    # pool.apply(func=worker,args=(msg,))
+# 关闭进程池
+pool.close()
+# 回收进程池
+pool.join()
+
+for i in result:
+    print(i.get()) # 可以获取进程事件函数的返回值
+# hello 0
+# hello 1
+# hello 2
+# hello 3
+# hello 4
+# hello 5
+# hello 6
+# hello 7
+# hello 8
+# hello 9
+# Wed Jan 30 19:40:40 2019
+# Wed Jan 30 19:40:40 2019
+# Wed Jan 30 19:40:42 2019
+# Wed Jan 30 19:40:42 2019
+# Wed Jan 30 19:40:44 2019
+# Wed Jan 30 19:40:44 2019
+# Wed Jan 30 19:40:46 2019
+# Wed Jan 30 19:40:46 2019
+# Wed Jan 30 19:40:48 2019
+# Wed Jan 30 19:40:48 2019
+
+
+pool.map(func,iter)
+  功能：将要做的事件加入进程池
+  参数：func    事件函数
+       iter    迭代对象
+  返回值：函数的返回值列表
+
+from multiprocessing import Pool 
+import time 
+
+def fun(n):
+    time.sleep(1)
+    return n*n
+
+pool=Pool()
+# 使用map将事件放进进程池
+r=pool.map(fun,[1,2,3,4,5])
+pool.close()
+pool.join()
+print(r)
+# [1, 4, 9, 16, 25]
+
+
+进程间通信(IPC)
+  原因：进程空间相对独立,资源无法互相获取,此时在不同
+       进程间需要专门的方法进行通信
+
+进程间通信：管道 消息队列 共享内存 信号 信号量 套接字
+
+通信管道(Pipe)
+  通信原理：在内存中开辟管道空间，生成管道操作对象，多个
+          进程使用同一个管道对象进行读写即可实现通信
+from multiprocessing import Pipe
+fd1,fd2=Pipe(duplex=True)
+  功能：创建管道
+  参数：默认表示双向管道
+       如果设置为False 则为单向管道
+  返回值：表示管道两端的读写对象
+         如果是双向管道则两端都可以读写
+         如果是单向管道则fd1只读  fd2只写
+fd.recv()
+  功能：从管道读取内容
+  返回值：读到的内容
+  当管道为空则阻塞
+fd.send(data)
+  功能：向管道写入内容
+  参数：要写入的数据
+  可以写入python的数据类型
+
+from multiprocessing import Process,Pipe 
+import os,time 
+
+# 创建管道对象
+fd1,fd2=Pipe()
+
+def fun(name):
+    time.sleep(3)
+    # 向管道写入内容
+    fd1.send(name)
+
+jobs=[]
+for i in range(5):
+    p=Process(target=fun,args=(i,))
+    jobs.append(p)
+    p.start()
+
+for i in range(5):
+    # 从管道取出消息
+    data=fd2.recv()
+    print(data)
+
+for i in jobs:
+    i.join()
+
+
+消息队列
+  队列：先进先出
+  原理：在内存中建立队列模型,进程通过队列对象将消息存入队列
+       或者从队列取出消息,完成进程间的通信
+from multiprocessing import Queue
+q=Queue(maxsize=0)
+  功能：创建队列对象
+  参数：表示队列中最多存放多少个消息
+  返回值：队列对象
+
+q.put(data,[block,timeout]) 
+  功能：向队列存入消息
+  参数：data 要存入的内容 python数据
+       block 默认队列满时会阻塞,设置为False则为非阻塞
+       timeout 超时检测
+
+q.get([block,timeout]) 
+  功能：从队列获取消息
+  参数：block 默认当队列为空时会阻塞,设置为False则为非阻塞
+       timeout 超时检测
+
+q.full() 判断队列是否为满
+q.empty() 判断队列是否为空
+q.qsize() 返回队列中消息的个数
+q.close() 关闭队列
+
+from multiprocessing import Process,Queue 
+import time 
+
+# 创建消息队列
+q = Queue()
+
+def fun1():
+    for i in range(10):
+        time.sleep(1)
+        q.put((1,2))
+
+def fun2():
+    for i in range(10):
+        time.sleep(2)
+        a,b=q.get()
+        print("sum = ",a+b)
+p1 = Process(target = fun1)
+p2 = Process(target = fun2)
+p1.start()
+p2.start()
+p1.join()
+p2.join()

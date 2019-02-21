@@ -1,0 +1,403 @@
+2018    10.18    星期四
+
+
+
+
+fork注意：
+  1.进入阻塞态的进程一定会让出cpu时间片
+  2.各个进程在自己空间内对数据的操作不影响其他进程
+  3.父进程在执行fork之前开辟的空间子进程也会复制
+
+
+进程相关函数
+  os.getpid()
+    功能：  获取当前进程的PID号
+    返回值：返回当前进程的PID
+  os.getppid()
+    功能：  获取父进程的PID号
+    返回值：返回父进程PID
+  os._exit(status)
+    功能：退出进程
+    参数：整数 表示自定义的进程退出状态标志
+  sys.exit([status])
+    功能：退出进程
+    参数：整数 表示退出状态 默认为0 
+         传一个字符串 退出时会打印这个字符串
+
+import os 
+pid=os.fork()
+
+if pid<0:
+    print("Error")
+elif pid==0:
+    print("Child PID",os.getpid())
+    # 获取父进程PID
+    print("Get Parent PID",os.getppid())
+else:
+    print("Parent PID",os.getpid())
+    # 获取子进程PID
+    print("Get Child PID",pid)
+
+
+孤儿进程和僵尸进程
+  孤儿进程：
+    父进程先于子进程退出,此时子进程就会成为孤儿进程
+    孤儿进程会被系统进程收养,此时系统进程就会成为
+    该进程新的父进程
+  僵尸进程：
+    子进程先于父进程退出,父进程没有处理子进程退出状态
+    此时子进程就会成为僵尸进程
+    僵尸进程虽然结束但是会存留部分PCB在内存,大量的
+    僵尸进程会占用内存资源
+
+如何避免僵尸进程产生
+  1.处理子进程退出状态
+    pid,status=os.wait()
+      功能： 在父进程中阻塞  等待子进程退出
+      返回值:pid 退出的子进程的PID
+            status 子进程的退出状态
+
+import os 
+from time import sleep 
+
+pid=os.fork()
+
+if pid<0:
+    print('Create process failed')
+elif pid==0:
+    sleep(3)
+    print('child %d process exit'%os.getpid())
+    os._exit(2)
+else:
+    pid,status=os.wait()
+    print("child pid:",pid)
+    # 退出状态*256
+    print('child exit status:',status)
+    print('Parent process...')
+    while True:
+        pass
+
+
+    pid,status=os.waitpid(pid,option)
+      功能：在父进程中等待子进程退出
+      参数：pid -1 表示等待任意子进程
+               >0 等待指定PID的子进程退出
+           option  0      表示阻塞 等待
+                  WNOHANG 表示非阻塞
+      返回值:pid 退出的子进程的PID
+            status 子进程的退出状态
+
+import os 
+from time import sleep 
+
+pid=os.fork()
+
+if pid<0:
+    print('Create process failed')
+elif pid==0:
+    sleep(3)
+    print('child %d process exit'%os.getpid())
+    os._exit(3)
+else:
+    # 非阻塞等待
+    while True:
+        p,status=os.waitpid(-1,os.WNOHANG)
+        print("child pid:",p)
+        # 退出状态*256
+        print('child exit status:',status)
+        if p!=0:
+            break
+        sleep(1)
+    while True:
+        print('Parent process...')
+        sleep(2)
+
+
+  2.创建二级子进程
+    1.父进程创建子进程等待子进程退出
+    2.子进程再创建二级子进程然后退出
+    3.二级子进程成为孤儿,和原来父进程各执行任务
+
+# 创建二级子进程避免僵尸
+import os 
+from time import sleep
+
+def f1():
+    sleep(3)
+    print('事件1......')
+def f2():
+    sleep(4)
+    print('事件2......')
+pid=os.fork()
+if pid<0:
+    print('Error')
+elif pid==0:
+    p=os.fork() # 创建二级子进程
+    if p==0:    # 二级子进程
+        f2()
+    else:
+        os._exit(0) # 一级子进程退出
+else:
+    os.wait() # 等待一级子进程退出
+    f1()
+
+
+群聊聊天室： 类似于qq群聊
+  功能：
+    1.进入聊天室需要输入姓名,姓名不能重复
+    2.进入聊天室会向其他人发送通知
+      XXX进入了聊天室
+    3.一个人发消息群里其他人都收的到
+      XXX 说：XXXXXXX
+    4.某人退出聊天室其他人会收到通知
+      XXX退出了聊天室
+    5.管理员可以发送管理员消息,此时所有人都收到消息
+      管理员说：XXXXXX
+        
+确定技术模型
+  消息发送：转发 先发给服务器在转发其他人
+  套接字选择： udp套接字
+  用户存储：字典 {name：ip}
+  收发关系处理： 多进程 分别处理发送接收
+
+整体设计
+  1.封装 将每个功能封装为函数
+  2.测试 实现一个功能测试一个功能
+  3.编写流程 搭建网络连接 逐个功能实现
+
+具体功能实现
+  1.网络连接
+    服务端：
+      创建udp套接字
+      绑定地址
+    客户端：
+      创建套接字
+
+  2.登录
+    服务端：
+      接收姓名
+      判断姓名是否存在
+      根据判断结果返回相应信息
+      如果不允许登录则功能结束
+      如果允许登录将用户加入维护的数据结构
+      将用户登录提示信息发给其他人
+    客户端：
+      输入姓名
+      将姓名发送给服务端
+      接收服务端确认消息
+      如果不允许则重新输入
+      如果允许进入聊天室
+      创建新的进程:一个用于收消息
+                 一个用于发消息
+                 
+  3.发送消息
+    服务端
+      收到消息判定请求类型
+      调用函数处理：将消息转发给其他人
+    客户端
+      循环写消息
+      将消息发送给服务器
+
+  4.退出
+    服务端
+      接收消息确定消息类型
+      将用户从字典移除
+      给其他人发送通知
+      给退出的客户端发送标志
+    客户端
+      输入quit表示退出
+      发送退出消息给服务端
+      客户端进程退出
+      接收退出标志退出进程
+
+  5.管理员喊话
+    子进程发送给父进程
+    父进程转发给其他人
+
+服务端
+# coding=utf-8
+'''
+Chatroom 
+env:python 3.5
+socket and fork
+'''
+from socket import *
+import os,sys 
+
+def do_login(s,user,name,addr):
+    if (name in user) or name == '管理员':
+        s.sendto("该用户已存在".encode(),addr)
+        return 
+    s.sendto(b'OK',addr)   
+    
+    # 通知其他人
+    msg="\n欢迎%s进入聊天室"%name
+    for i in user:
+        s.sendto(msg.encode(),user[i])
+    # 将用户加入user
+    user[name] = addr
+
+def do_chat(s,user,name,msg):
+    msg="\n%s 说: %s"%(name,msg)
+    for i in user:
+        if i != name:
+            s.sendto(msg.encode(),user[i]) 
+
+def do_quit(s,user,name):
+    msg="\n%s 退出了聊天室"%name
+    for i in user:
+        if i == name:
+            s.sendto(b'EXIT',user[i])
+        else:
+            s.sendto(msg.encode(),user[i])
+    # 从字典删除用户
+    del user[name]
+
+def do_request(s):
+    # 存储结构 {'zhangsan':('127.0.0.1',9999)}
+    user={}
+    while True:
+        msg,addr=s.recvfrom(1024)
+        msgList=msg.decode().split(' ')
+        # 区分请求类型
+        if msgList[0]=='L':
+            do_login(s,user,msgList[1],addr)
+        elif msgList[0] == 'C':
+            msg=' '.join(msgList[2:])
+            do_chat(s,user,msgList[1],msg)
+        elif msgList[0] == 'Q':
+            do_quit(s,user,msgList[1])
+
+# 创建网络连接
+def main():
+    ADDR=('0.0.0.0',8888)
+    # 创建套接字
+    s=socket(AF_INET,SOCK_DGRAM)
+    s.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+    s.bind(ADDR)
+
+    pid = os.fork()
+    if pid < 0:
+        print('创建进程失败')
+        return
+    elif pid == 0:
+        # 子进程发送消息到父进程 父进程转发给每个用户
+        while True:
+            msg=input("管理员消息:")
+            msg="C 管理员 "+msg
+            s.sendto(msg.encode(),ADDR)
+    # 父进程用于接收各种客户端请求 调用相应的函数处理
+    else:
+        do_request(s)
+
+if __name__=="__main__":
+    main()
+
+客户端
+from socket import * 
+import os,sys 
+
+# 发送消息
+def send_msg(s,name,addr):
+    while True:
+        text=input('发言：')
+        if text == 'quit':
+            msg='Q '+name
+            s.sendto(msg.encode(),addr)
+            sys.exit('退出聊天室')
+        msg='C %s %s'%(name,text)
+        s.sendto(msg.encode(),addr)
+
+# 接收消息
+def recv_msg(s):
+    while True:
+        data,addr=s.recvfrom(2048)
+        # 接收服务器发来的退出标志后退出该进程
+        if data.decode() =='EXIT':
+            sys.exit(0)
+        print(data.decode()+'\n发言：',end='')
+
+# 创建套接字
+def main():
+    # 从命令行输入服务器地址
+    if len(sys.argv)<3:
+        print("argv is error")
+        return 
+    HOST=sys.argv[1]
+    PORT=int(sys.argv[2])
+    ADDR=(HOST,PORT)
+    # 创建套接字
+    s=socket(AF_INET,SOCK_DGRAM)
+    while True:
+        name=input("请输入姓名:")
+        msg="L "+name
+        # 发送给服务端
+        s.sendto(msg.encode(),ADDR)
+        # 等待回应
+        data,addr=s.recvfrom(1024)
+        if data.decode() == 'OK':
+            print("您已进入聊天室")
+            break
+        else:
+            print(data.decode())
+    # 创建父子进程
+    pid = os.fork()
+    if pid < 0:
+        sys.exit('创建进程失败')
+    elif pid == 0:
+        send_msg(s,name,ADDR)
+    else:
+        recv_msg(s)
+
+if __name__=="__main__":
+    main()
+
+ 
+作业：
+  1.梳理聊天室代码思路
+  2.整理fork创建进程的特征
+  3.创建父子进程同时复制一个文件,各复制文件的一半到新的文件中
+  
+import os 
+
+filename = "./timg.jpg"
+# 获取文件大小
+size = os.path.getsize(filename)
+
+# 上半部分
+def copy1():
+    f = open(filename,'rb')
+    n = size // 2
+    fw = open('1.jpg','wb')
+    while True:
+        if n < 1024:
+            data = f.read(n)
+            fw.write(data)
+            break
+        data = f.read(1024)
+        fw.write(data)
+        n -= 1024 
+    f.close()
+    fw.close()
+
+# 下半部分
+def copy2():
+    f = open(filename,'rb')
+    fw = open('2.jpg','wb')
+    # 以开始为基准向后偏移
+    f.seek(size//2,0)
+    while True:
+        data = f.read(1024)
+        if not data:
+            break
+        fw.write(data)
+    f.close()
+    fw.close()
+
+pid = os.fork()
+if pid < 0:
+    print("Create process failed")
+elif pid == 0:
+    copy1()
+else:
+    copy2()

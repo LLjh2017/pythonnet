@@ -1,0 +1,237 @@
+2018    09.30     星期日
+
+
+
+
+1.什么是数据库
+  存储数据的仓库
+2.有数据库的公司
+  金融机构 游戏网站 电商网站.....
+3.提供数据库服务的软件
+  1.软件分类
+    MySQL Oracle MongDB MariaDB SQL_Server 
+  2.生产环境中,如何选择使用哪个数据库
+    1.是否开源(源代码开放,可复制,可传播)
+      1.开源软件:MySQL MariaDB MongoDB
+      2.商业软件:Oracle SQL_Server 
+    2.是否跨平台
+      1.不跨平台:SQL_Server
+      2.跨平台:MySQL Oracle MongDB MariaDB
+    3.公司类型
+      1.商业软件:政府部门 金融机构
+      2.开源软件:游戏网站 电商网站...
+  3.MySQL特点
+    1.关系型数据库
+      1.关系型数据库特点
+        1.数据是以行和列(表格)形式存储
+        2.表中行叫记录,表中列叫字段
+        3.表和表之间的逻辑关联叫关系
+      示例:
+        1.关系型数据库存储
+          表1:学生信息表
+            姓名     年龄     班级
+            佩奇     20      三班
+            丹尼     23      六班
+          表2:班级信息表
+            班级       班主任
+            三班       卢大大
+            六班       大空翼
+        2.非关系型数据库存储
+          {"姓名":"佩奇",
+            "年龄":20
+            "班级":"三班"
+            "班主任":"卢大大"}
+          {"姓名":"丹尼",
+            "年龄":23
+            "班级":"六班"
+            "班主任":"大空翼"}
+      2.跨平台
+        unix linux windows 上部署数据库服务
+      3.支持多种编程语言
+        python  java  php 
+4.数据库软件  数据库  数据仓库 概念
+  1.数据库软件 
+    一个软件,看得见,可操作,实现数据库的逻辑功能
+  2.数据库
+    逻辑概念,实现存储数据的功能
+  3.数据仓库
+    数据量:比数据库大的多
+    侧重点:
+      数据库侧重存储
+      数据仓库侧重于数据分析和数据挖掘
+2.MySQL安装
+  1.Ubuntu安装MySQL服务
+    1.安装服务端
+      sudo apt-get install mysql-server  
+    2.客户端
+      sudo apt-get install mysql-client
+  2.windows安装MySQL
+    1.下载MySQL安装包
+    2.按照教程安装
+  3.Mac安装MySQL
+    1.下载MySQL安装包 
+    2.设置环境变量
+      cd 
+      vi .bash_profile
+      在末尾添加: PATH="$PATH":/usr/local/mysql/bin
+    3.终端:source .bash_profile
+    4.登录测试: mysql -uroot -p密码
+3.启动和连接MySQL服务
+  1.启动服务端
+    sudo/etc/init.d/mysql start
+    sudo/etc/init.d/mysql status |stop|restart
+  2.客户端连接
+    mysql  -h主机地址  -u用户名  -p密码
+    mysql  -hlocalhost -uroot  -p123456
+    退出：exit | quit 
+4.基本SQL命令
+  1.SQL命令使用规则
+    1.每条命令必须以;结尾
+    2.SQL命令不区分字母大小写
+    3.使用\c来终止当前命令执行
+  2.库的管理
+    1.库基本操作
+      1.查看已有库
+        show databases;
+      2.创建库(指定字符集)
+        create database 库名 character set utf8;
+      3.查看创建库的语句
+        show create database 库名;
+      4.查看当前所在库
+        select database();
+      5.切换库
+        use 库名;
+      6.查看库中已有表
+        show tables;
+      7.删除库
+        drop database 库名;
+    2.库命名规则
+      1.数字,字母,_,但不能使用纯数字
+      2.库名区分字母大小写
+      3.不能使用页数字符和mysql关键字
+  3.表的管理
+    1.表的基本操作
+      1.创建表(也可以指定字符集)
+        create table 表名(字段名1 数据类型,
+                         字段名2 数据类型);
+                         character set utf8 字符集
+      2.查看创建表的语句(字符集,存储引擎)
+        show create table 表名;
+      3.查看表结构
+        desc 表名;
+      4.删除表
+        drop table 表名;
+  4.注意
+    1.所有的数据都是以文件形式存放在数据库目录下
+    2.数据库目录:/var/lib/mysql
+  5.表记录管理
+    1.插入表记录(insert)
+      1.insert into 表名 values(值1),(),();
+       t1: id name score
+        insert into t1 values
+                  (1,'金毛狮王',80),(2,'白眉鹰王',80);
+      2.insert into 表名(字段1,...) 
+               values(值1),(值2),..(值n);
+    2.查询表记录(select)
+      1.select * from 表名 where 条件;
+      2.select 字段1,字段2 from 表名 where 条件;
+5.更改库的默认字符集
+  1.方法(更改配置文件)
+  2.步骤
+    1.sudo -i
+    2.cd /etc/mysql/mysql.cnf.d/
+    3.备份: cp mysqld.cnf mysqld.cnf.bak
+    4.subl mysqld.cnf
+      [mysqld]
+      character_set_server=utf8
+    5.重启mysql服务
+      sudo /etc/init.d/mysql restart
+    6.进入数据库验证
+
+    MAC本: /etc/my.cnf
+      [mysqld]
+      character_set_server=utf8
+6.客户端把数据存储到数据库服务器上的过程
+  1.连接到数据库:mysql -uroot -p123456
+  2.选择库: use 库名;
+  3.修改表: insert / update ...
+  4.断开与数据库连接: exit|quit|\q
+7.数据类型
+  1.数值类型
+    1.整型
+      1.int 大整型(4个字节)
+        0~2**32-1(存储范围42亿多)
+      2.tinyint 微小整型(1个字节)
+        1.有符号(signed默认): -128~127
+        2.无符号(unsigned):  0~255
+          age tinyint unsigned,
+      3.smallint 小整型(2个字节)
+      4.bigint 极大整型(8个字节)
+    2.浮点型
+      1.float (4个字节,最多显示7个有效位)
+        1.用法:
+          score float(m,n) m-->代表总位数
+                           n-->代表小数位位数
+              float(5,2)的取值范围: -999.99~999.99
+      2.double(m,n)
+      3.decimal(m,n) 整数和小数分开存储
+        money decimal(20,2),
+        规则:将9的倍数封装成4个字节
+        存储空间:
+          余数  字节
+           0     0
+          1-2    1
+          3-4    2
+          5-6    3
+          7-8    4
+          decimal(19,9)
+          整数部分: 10/9余1  4+1=5字节
+          小数部分: 9/9余0   4+0=4字节
+  2.字符类型
+    1.char(定长)
+      char(宽度)  取值范围:1~255
+    2.varchar(变长)
+      varchar(宽度) 取值范围: 1~65535
+    3.text/longtext(4G)/blob/longblob
+    4.char和varchar的特点
+      1.char:浪费存储空间,性能高
+      2.varchar:节省存储空间,性能低
+  3.枚举类型
+  4.日期时间类型
+
+作业：
+  1.MySQL中的数据类型有
+  2.关系型数据库的核心内容是 关系 即二维表
+  3.简述客户端把数据存储到数据库服务器上的过程
+  4.char和varchar的区别,各自的特点
+  5.操作
+      sudo /etc/init.d/mysql restart
+      mysql -uroot -p123456
+    1.创建库school
+      create database school character set utf8;
+    2.在库中创建表students,用来存储学生信息
+      id,name(变长),class(定长),phonenumber(定长)
+      age(不能为负),score(浮点)
+      use school;
+      mysql> create table students(
+          -> id int,
+          -> name varchar(15),
+          -> class char(10),
+          -> phonenumber char(15),
+          -> age tinyint unsigned,
+          -> score float(5,2)
+          -> );
+    3.查看students的表结构
+      desc students
+    4.在表中随意插入3条记录
+      insert into students values(1,'小张','三班',
+      '18800000000',18,90),(2,'小王','六班',
+      '19900000000',20,80)，(3,'小李','五班',
+      '17700000000',15,40);
+    5.在表中的姓名,成绩2个字段插入3条记录
+      insert into students(name,score) values(
+        '周芷若',79),('赵敏',100),('灭绝',9);
+    6.查看所有学生的姓名和成绩
+      select name,score from students;
+    7.查看成绩及格的学生姓名和成绩
+      select name,score from students where score>60;

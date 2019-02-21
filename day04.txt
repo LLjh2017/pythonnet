@@ -1,0 +1,207 @@
+2018    10.10    星期三 
+
+
+
+
+1.锁(MySQL自动加锁和释放锁)
+  1.目的:解决客户端并发访问的冲突问题
+  2.锁分类
+    1.锁类型
+      1.读锁(共享锁)
+        select: 加读锁之后别人可以查询,但是不能更改(update)
+      2.写锁(互斥锁,排他锁)
+        update:加写锁之后,别人不能查,不能改
+    2.锁粒度
+      1.行级锁:可加读锁,写锁
+      2.表级锁:可加读锁,写锁
+
+2.存储引擎(处理表的处理器)
+  1.基本操作
+    1.查看所有存储引擎
+      show engines;
+    2.查看已有表的存储引擎  
+      show create table 表名; 
+    3.创建表时指定
+      create table 表名(...)engine=myiSAM;   
+    4.已有表
+      alter table 表名 engine=InnoDB;
+  2.常用的存储引擎的特点
+    1.InnoDB特点
+      1.支持外键,行级锁,事务
+      2.共享表空间
+        表名.frm : 表结构和索引信息
+        表名.ibd : 表记录
+    2.myISAM特点
+      1.支持表级锁
+      2.独享表空间
+        表名.frm:表结构
+        表名.MYD:表记录
+        表名.MYI:索引信息
+    3.MEMORY特点
+      1.表结构存储在硬盘,表记录存储在内存
+      2.服务/主机重启后,表记录消失
+  3.如何选择使用哪个存储引擎
+    1.执行查询操作多的表用MyISAM(使用InnoDB浪费资源)
+    2.执行写操作多的表用InnoDB
+
+3.数据备份(mysqldump,在linux终端中操作)
+  完全备份,增量备份
+  1.mysqldump -u用户名 -p 源库名 > xxx.sql
+    mysqldump -uroot -p db4>db4.sql
+  2.源库名表示方式
+    --all-databases  备份所有库
+    库名              备份单个库
+    -B 库1 库2 库3    备份多个库
+    库名 表1 表2 表3   备份指定库的多个表
+  3.示例
+    1.备份所有库,放到mydb目录下:all.sql 
+      mysqldump -uroot -p --all-databases>all.sql
+    2.备份db3库中sheng,city,xian三张表:scx.sql 
+      mysqldump -uroot -p db3 sheng city xian>scx.sql 
+    3.备份MOSHOU库和db4库:md.sql
+      mysqldump -uroot -p -B MOSHOU db4>md.sql 
+    4.备份db4库:db4.sql
+      mysqldump -uroot -p db4>db4.sql
+
+4.数据恢复(linux终端中操作)
+  1.mysql -u用户名 -p 目标库名 < xxx.sql
+  2.示例
+    1.删除db3库,创建空库,从all.sql中恢复此库
+      mysql> drop database db3;
+      mysql> create database db3 character set utf8;
+      mysql> use db3;
+      终端:mysql -uroot -p --one-database db3<all.sql
+    2.从备份中恢复db4库
+      mysql -uroot -p db4<db4.sql 
+    3.注意
+      1.恢复库时,会将表中数据覆盖,新增表不会删除
+      2.恢复时,如果要恢复的库不存在,则先创建空库
+
+5.数据导入    
+  1.作用:把文件系统的内容导入到数据库中
+  2.语法格式
+    load data infile '文件名' into table 表名
+    fields terminated by '分隔符'
+    lines terminated by '\n';
+  3.导入步骤
+    1.在数据库中创建对应的表
+      create table score(
+      id int,
+      name varchar(20),
+      score float(5,2),
+      phnumber char(11),
+      class char(7)
+      )charset=utf8;
+    2.把文件拷贝到数据库的搜索路径中
+      1.查看搜索路径
+        show variables like 'secure_file_priv';
+      2.拷贝文件
+        sudo cp scoreTable.csv /var/lib/mysql-files/
+    3.执行数据导入语句
+      load data infile "/var/lib/mysql-files/scoreTable.csv"
+      into table score fields terminated by ","
+      lines terminated by "\n";
+  4.文件权限
+    -rwxr--r--  root  root scoreTable.csv
+    最左侧-:代表文件
+    r:读
+    w:编辑
+    x:可执行
+    rwx r-- r--
+    第一组 : 所有者权限   tarena 
+    第二组 : 所属组权限   tarena2
+    第三组 : 其他用户权限  mysql
+  5.修改文件权限
+    r: 4
+    w: 2
+    x: 1
+    chmod  777  文件名  rwx-rwx-rwx-
+    chmod  666  文件名  rw-rw-rw-
+    chmod  644  文件名  rw-r--r--
+
+6.数据导出
+  1.把数据库中表记录导出到系统文件里
+  2.语法格式
+    select ... from 表名 where 条件 
+    into outfile  "文件名"
+    fields terminated by "分隔符"
+    lines terminated by "\n" 
+  3.示例 把sanguo 表英雄的姓名 攻击值 和国家导出到
+    sanguo.csv 
+mysql> select name,gongji,country from studb2.sanguo
+    -> into outfile "/var/lib/mysql-files/sanguo.csv"
+    -> fields terminated by ","
+    -> lines terminated by "\n"
+    -> ;
+mysql> system sudo -i
+[sudo] tarena 的密码： 
+root@tedu:~# cd /var/lib/mysql-files/
+root@tedu:/var/lib/mysql-files# ls
+sanguo.csv  scoreTable.csv
+root@tedu:/var/lib/mysql-files# cat sanguo.csv
+
+
+ctrl shift + t 创建新终端
+    
+7.E-R 模型(Entry-Relationship)
+  1.定义: 实体-关系模型,数据模型,用于设计数据库
+  2.三个概念
+    1.实体:描述客观事物的概念
+      1.表示方式:矩形框
+      2.示例:一个人 一本书 ...
+    2.属性
+      实体所具有的特性
+      表示方式:椭圆形
+    3.关系
+      1.各个实体之间的联系
+      2.分类
+        1.一对一(1:1): 老公对老婆
+          A中一个实体,在B中只能有一个与其关联
+          B中一个实体,在A中只能有一个与其关联
+        2.一对多(1:n): 父亲对孩子
+          A中一个实体,在B中有n个与其关联
+          B中一个实体,在A中只能有一个与其关联
+        3.多对多(m:n): 兄弟姐妹对兄弟姐妹
+          A中一个实体,在B中有n个与其关联
+          B中一个实体,在A中有n个与其关联
+  3.ER图绘制
+    1.矩形框代表实体,菱形框代表关系,椭圆形代表属性
+    2.示例(老师与课题)
+      老师: 员工号 姓名 职称 
+      课题: 课题号 课题名
+      关系: m:n 
+    3.数据库三范式
+      1.第一范式(1NF):列不可拆分
+      2.第二范式(2NF):唯一标识
+      3.第三范式(3NF):引用主键
+        说明:后一个范式都是在前一个范式的基础上建立的 
+      4.练习
+        1.设计一个学生选课系统的ER图
+          实体: 学生 课程 老师
+          学生: 学号 姓名 ...
+          课程: 课程编号 课程名称
+          老师: 员工号 姓名
+          关系: 老师-教-学生   m:n
+               学生-选-课程   m:n 
+8.MySQL用户管理
+  1.开启远程连接
+    1.sudo -i
+    2.cd /etc/mysql/mysql.conf.d/
+    3.subl mysqld.cnf 
+      bind-address = 127.0.0.1(去掉前面#)
+    4./etc/init.d/mysql restart 
+  2.添加授权用户
+    1.用root用户登录mysql
+      mysql -uroot -p123456
+    2.授权
+      grant 权限列表 on 库.表 to "用户名"@"%"
+      identified by "密码" with grant option;
+      权限列表:all privileges,select drop
+      库.表  : 库.*  *.*(所有库所有表)
+    示例:
+      1.添加授权用户tiger,对db4库有所有权限,密码123
+        grant all privileges on db4.* to "tiger"@"%"
+        identified by "123"
+        with grant option;(在mysql里)
+        mysql -utiger -p123
+

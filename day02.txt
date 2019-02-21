@@ -1,0 +1,236 @@
+2018    10.08   星期一
+
+
+
+
+1.表字段的操作
+  1.语法:alter table 表名 执行动作;
+  2.添加字段(add)
+    alter table 表名 add 字段名 数据类型;
+    alter table 表名 add 字段名 数据类型 first;
+    alter table 表名 add 字段名 数据类型 after 字段名;
+  3.删除字段(drop)
+    alter table 表名 drop 字段名;
+  4.修改数据类型(modify)
+    alter table 表名 modify 字段名 新数据类型;
+  5.字符类型宽度和数值类型宽度区别
+    1.数值类型宽度为显示宽度,只用于select查询时显示,和存储
+      无关,可用zerofill查看效果
+      alter table t1 add id int(3) zerofill first;
+      显示宽度为3 不够的话0来凑,超过3位的话正常显示
+    2.字符类型宽度超过之后无法存储
+
+2.数据类型
+  1.数值类型
+  2.字符类型
+  3.枚举类型
+    1.单选:enum(值1,值2,值3...)
+    2.多选:set(值1,值2,值3...)
+      ##插入记录时:"girl,study,mysql"
+  4.日期时间类型
+    1.date:"YYYY-MM-DD"
+    2.time:"HH:MM:SS"
+    3.datetime:"YYYY-MM-DD HH:MM:SS"
+    4.timestamp:"YYYY-MM-DD HH:MM:SS"
+    5.注意
+      1.datetime:不给值默认返回NULL
+      2.timestamp:不给值默认返回系统当前时间
+3.时间日期函数
+  1.now() : 返回当前时间 "YYYY-MM-DD HH:MM:SS"
+  2.curdate():返回日期 "YYYY-MM-DD"
+  3.curtime():返回时间 "HH:MM:SS"
+
+  4.year(date):取出年份
+  5.date(date):取出日期
+  6.time(date):取出时间
+    1.查询2018年10月8日用户充值的信息
+      select * from t7 where date(cztime)="2018-10-08";
+    2.查询2018年10月8日10:00-12:00充值信息
+      select * from t7 where cztime>='2018-10-08 10:00:00' 
+      and cztime<='2018-10-08 12:00:00';
+    3.查找2018年10月份用户充值信息
+      select * from t7 where date(cztime)>='2018-10-01' 
+      and date(cztime)<='2018-10-31';
+    = > < and or 都可以用
+4.日期时间运算
+  1.语法格式
+    select * from 表名 where
+    字段名 运算符(now()-interval 时间间隔单位)
+  时间间隔单位:
+    1 day | 2 hour | 3 year | 3 month |
+  1.查询一天以内的充值记录
+    select * from t7 where 
+    cztime>=(now()-interval 1 day);
+  2.查询1年以前充值记录
+    select * from t7 where 
+    cztime<=(now()-interval 1 year);
+  3.查询1天以前,3天以内的充值记录
+    select * from t7 where 
+    cztime>=(now()-interval 3 day) 
+    and cztime<=(now()-interval 1 day);
+
+5.表记录的管理
+  1.删除表记录(delete)
+    1.delete from 表名 where 条件;
+      ##不加where条件 全部删除表记录
+  2.更改表记录(update)
+    1.update 表名 set 字段1=值1,字段2=值2
+      where 条件;
+      ##不加where条件 全部更改表记录
+示例：
+  1.查找所有蜀国英雄信息
+    select * from hero where country='蜀国';
+  2.查找所有女英雄的姓名,性别和国家
+    select name,sex,country from hero where sex='女';
+  3.把id为2的记录改为典韦,性别男,国家改为魏国
+    update hero set name='典韦',sex='男',country='魏国' 
+    where id=2;
+  4.删除所有的蜀国英雄
+    delete from hero where country='蜀国';
+  5.把貂蝉的国籍改为魏国
+    update hero set country='魏国' where name='貂蝉';
+  6.删除所有的表记录
+    delete from hero;
+6.运算符操作
+  1.数值比较 && 字符比较 && 逻辑比较
+    1.数值比较:=  !=  > >= <=  <
+    2.字符比较:=  !=
+    3.逻辑比较:and  or  between 值1 and 值2
+      where id between 100 and 200;
+      where id>=100 and id<=200;
+示例：
+  1.找出攻击力高于200的蜀国英雄名字和攻击力
+    select name,gongji from sanguo where gongji>200
+    and country='蜀国';
+  2.将吴国英雄中攻击值为110的英雄攻击值改为100,防御力改为60
+    update sanguo set gongji=100,fangyu=60 where 
+    country='吴国' and gongji=110;
+  3.查找蜀国和魏国的英雄信息
+    select * from sanguo where country='蜀国' or
+    country='魏国';
+    select * from sanguo where country in('蜀国','魏国');
+
+  2.范围内比较
+    1.where 字段名 in(值1,值2.....)
+    2.where 字段名 not in(值1,值2....)
+示例：
+  1.查找攻击值在100-200之间的蜀国英雄信息
+    select * from sanguo where gongji 
+    between 100 and 200 and country='蜀国';
+  2.找到蜀国和吴国以外的国家的女英雄信息
+    select * from sanguo where country not 
+    in('蜀国','吴国') and sex='女';
+  3.找到id为1,3,5的蜀国英雄和貂蝉的信息
+    select * from sanguo where id in(1,3,5) 
+    and country='蜀国' or name='貂蝉';
+
+  3.匹配空,非空
+    1.where name is NULL
+    2.where name is not NULL
+  4.注意
+    1.NULL: 空值 只能用is is not 去匹配
+      select * from sanguo where name is null;
+    2.""  : 空字符串,用 = , != 去匹配
+      select * from sanguo where name='';
+
+  5.模糊查询(like)
+    1.where 字段名 like 表达式
+    2.表达式
+      %: 匹配零到多个字符
+      _: 匹配1个字符
+    名字中包含2个字符及以上的
+      select name from sanguo where name like "_%_";
+    匹配所有(不包含NULL)
+      select name from sanguo where name like "%";
+    匹配3个字符
+      select name from sanguo where name like "___";
+    匹配姓赵的信息
+      select name from sanguo where name like "赵%";
+7.SQL查询
+  1.总结
+    3.select...聚合函数 from 表名 
+    1.where...
+    2.group by...
+    4.having...
+    5.order by...
+    6.limit...  #  写的时候按照顺序写
+  2.order by: 给查询结果进行排序
+    1....order by 字段名 ASC(默认升序)/DESC(降序) 
+示例:
+  1.将英雄按防御值从高到低排序
+    select * from sanguo order by fangyu DESC;
+  2.将蜀国英雄按攻击值从高到低排序
+    select * from sanguo where country='蜀国' order by
+    gongji DESC;
+  3.将魏蜀两国英雄中名字为3个字的英雄按防御值升序排列
+    select * from sanguo where name like '___'
+    and country in('魏国','蜀国') order by 
+    fangyu;
+
+  3.limit(永远放在SQL语句的最后写)
+    1.limit n   : 显示n条记录
+    2.limit m,n : 从第m+1条记录开始,显示n条记录
+      limit 2,3 : 从第3条记录开始,显示3,4,5记录
+    3.分页
+      每页显示5(m)条记录,显示第4(n)页的记录
+      limit 15,5
+      limit (n-1)*m,m 显示第n页的记录
+示例：
+  1.在蜀国英雄中,查找防御值倒数第2名至倒数第4名的英雄记录
+    select * from sanguo where country='蜀国'
+    order by fangyu limit 1,3;
+  2.在蜀国英雄中,查找攻击值前3名且名字不为NULL的英雄的姓名
+    攻击值和国家
+    select name,gongji,country from sanguo where 
+    country='蜀国' and name is not null order by 
+    gongji DESC limit 3;
+
+  4.聚合函数
+    1.分类
+      avg(字段):平均值
+      max(字段):最大值
+      min(字段):最小值
+      sum(字段):求和
+      count(字段):统计该字段记录的条数
+示例:
+  1.攻击力最强值是多少
+    select max(gongji) from sanguo;
+    select max(gongji) as max from sanguo;
+  2.统计id,name有几条记录
+    select count(id),count(name) from sanguo;
+    select count(*) from sanguo;
+  3.统计蜀国英雄中攻击值大于200的英雄数量
+    select count(*) from sanguo where country='蜀国' 
+    and gongji>200;
+
+  5.group by :给查询的结果进行分组
+示例
+  1.计算每个国家的平均攻击力
+    select country,avg(gongji) from sanguo
+    group by country;
+  2.查找所有国家的男英雄中,英雄数量最多的前两名的
+    国家名称及英雄数量
+    select country,count(*) from sanguo where 
+    sex='男' group by country order by count(*)
+    DESC limit 2;
+    注意
+      1.group by 后字段名必须要为select后的字段
+      2.如果查询字段和group by 后字段不一致,则必须对
+        该字段进行聚合处理(聚合函数)
+
+  6.having:对分组聚合后的结果进行进一步筛选
+示例
+  1.找出平均攻击力大于105的国家的前2名,显示国家名称和
+    平均攻击力
+    select country,avg(gongji) from sanguo group by 
+    country having avg(gongji)>105 order by avg(gongji)
+    DESC limit 2;
+  注意
+    1.having语句通常与group by 联合使用
+    2.having语句存在弥补了where关键字不能与聚合函数
+      联合使用的不足,where只能操作表中实际存在的字段
+      having操作的是聚合函数生成的显示列
+表重命名(rename)
+  alter table 原表名 rename 新表名;
+表字段重命名(change)
+  alter table 表名 change 原名 新名 数据类型;

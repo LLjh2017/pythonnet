@@ -1,0 +1,327 @@
+2018    10.24    星期三
+
+
+
+
+集成模块完成多进程多线程socket并发
+
+import socketserver
+  功能：通过模块提供的不同类的组合完成多进程或者多线程的tcp或者
+       udp的并发程序
+
+StreamRequestHandler   完成流式套接字请求
+DatagramRequestHandler 完成数据报套接字请求
+
+TCPServer   创建tcp套接字服务
+UDPServer   创建udp套接字服务
+
+ForkingMixIn      创建多进程并发程序
+ForkingTCPServer  ForkingMixIn + TCPServer
+ForkingUDPServer  ForkingMixIn + UDPServer
+
+ThreadingMixIn      创建多线程并发程序
+ThreadingTCPServer  ThreadingMixIn + TCPServer
+ThreadingUDPServer  ThreadingMixIn + UDPServer
+
+使用步骤：
+  1.创建服务器类,通过选择继承模块的TCPServer或UDPServer确定
+    服务器类型,多进程或多线程类确定并发关系
+  2.创建请求处理类,根据服务器类型选择继承流式套接字处理类还是
+    数据报套接字处理类
+  3.通过服务器类创建服务器对象,并绑定请求处理类
+  4.通过serve_forever()启动服务器,等待连接请求
+
+
+进程tcp套接字服务并发
+from socketserver import * 
+
+# 服务器类型
+class Server(ForkingMixIn,TCPServer):
+    pass 
+
+# 处理具体请求
+class Handler(StreamRequestHandler):
+    # 具体处理方法
+    def handle(self):
+        print("Connect from",self.client_address)
+        while True:
+            # self.request就是accept返回的客户端连接套接字
+            data = self.request.recv(1024)
+            if not data:
+                break 
+            print(data.decode())
+            self.request.send(b'Receive')
+
+
+if __name__ == "__main__":
+    server_addr = ('0.0.0.0',8888)
+
+    # 创建服务器对象
+    server = Server(server_addr,Handler)
+    server.serve_forever() # 启动服务器
+
+
+线程udp套接字服务 并发
+
+from socketserver import * 
+
+# 创建服务器类
+class Server(ThreadingMixIn,UDPServer):
+    pass 
+
+class Handler(DatagramRequestHandler):
+    def handle(self):
+        while True:
+            data = self.rfile.readline()
+            if not data:
+                break
+            print(data.decode())
+            self.wfile.write(b'Receive')
+
+if __name__ == "__main__":
+    server = Server(('0.0.0.0',8888),Handler)
+    server.serve_forever()
+
+
+
+HTTPServer  v2.0
+  1.接收客户端请求
+  2.解析客户端请求
+  3.组织数据,以http相应格式返回
+  4.将数据发送给浏览器
+升级：
+  1.采用多线程并发,可以满足多个客户端同时发起请求
+  2.基本的请求解析,根据具体请求内容返回相应的网页
+  3.除了访问网页,还可以让客户端获取一些数据
+  4.将整体功能封装为类
+技术点：
+  1.使用socket tcp套接字传输
+  2.使用多线程作为并发
+  3.类的封装构建
+  4.http协议的请求和响应格式
+    http请求：
+      请求行   GET   /abc.html    HTTP/1.1
+      请求头
+      空行
+      请求体
+
+    http响应：
+      响应行   HTTP/1.1   200   OK
+      响应头
+      空行
+      响应体   具体的内容
+
+服务端
+#coding=utf-8
+'''
+HTTP Server v2.0
+多线程并发
+可以做request解析
+能够返回简单的数据
+使用类进行封装
+'''
+
+from socket import * 
+from threading import Thread 
+import sys 
+
+# 封装具体的http server功能
+class HTTPServer(object):
+    def __init__(self,server_addr,static_dir):
+        # 添加对象属性
+        self.server_address = server_addr
+        self.static_dir = static_dir
+        self.ip = server_addr[0]
+        self.port = server_addr[1]
+        # 创建套接字
+        self.create_socket()
+    
+    def create_socket(self):
+        self.sockfd = socket()
+        self.sockfd.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+        self.sockfd.bind(self.server_address)
+    
+    # 启动服务器
+    def serve_forever(self):
+        self.sockfd.listen(5)
+        print("Listen the port %d"%self.port)
+        while True:
+            try:
+                connfd,addr = self.sockfd.accept()
+            except KeyboardInterrupt:
+                self.sockfd.close()
+                sys.exit("服务器退出")
+            except Exception as e:
+                print("Error:",e)
+                continue
+            # 创建线程处理客户端请求
+            clientThread = Thread(target=self.handle,args=(connfd,))
+            clientThread.setDaemon(True)
+            clientThread.start()
+
+    # 具体处理客户端请求
+    def handle(self,connfd):
+        # 接收客户端请求
+        request = connfd.recv(4096)
+        # 按行切割
+        requestHeaders = request.splitlines()
+        print(connfd.getpeername(),":",requestHeaders[0])
+
+        # 获取具体请求内容
+        getRequest = str(requestHeaders[0]).split()[1]
+        if getRequest == '/' or getRequest[-5:] == '.html':
+            self.get_html(connfd,getRequest)
+        else:
+            self.get_data(connfd,getRequest)
+        connfd.close()
+
+    # 给客户端发送网页    
+    def get_html(self,connfd,getRequest):
+        if getRequest == '/':
+            filename = self.static_dir+"/index.html"
+        else:
+            filename = self.static_dir+getRequest
+        # print(filename)
+        try:
+            f = open(filename)
+        except Exception:
+            # 没找到网页
+            responseHeaders = "Http/1.1 404 Not found\r\n"
+            responseHeaders += '\r\n'
+            responseBody = "Sorry,not found the page"
+        else:
+            # 如果找到网页则返回网页
+            responseHeaders = "Http/1.1 200 OK\r\n"
+            responseHeaders += '\r\n'
+            responseBody = f.read()
+        finally:
+            response = responseHeaders+responseBody
+            connfd.send(response.encode())
+
+    def get_data(self,connfd,getRequest):
+        urls = ['/time','/tedu','/python']
+        if getRequest in urls:
+            responseHeaders = "Http/1.1 200 OK\r\n"
+            responseHeaders += '\r\n'
+            if getRequest == '/time':
+                import time 
+                responseBody = time.ctime()
+            elif getRequest == '/tedu':
+                responseBody = 'Tedu python'
+            elif getRequest == '/python':
+                responseBody = 'python 开发'
+            else:
+                responseHeaders = "Http/1.1 404 Not found\r\n"
+                responseHeaders += '\r\n'
+                responseBody = 'No data'
+            response = responseHeaders+responseBody
+            connfd.send(response.encode())
+
+if __name__=="__main__":
+    # 用户使用时自己设定服务器IP
+    server_addr = ('0.0.0.0',8000)
+    # 需要用户提供网页位置
+    static_dir = "./static"
+    # 创建服务器对象
+    httpd = HTTPServer(server_addr,static_dir)
+    # 启动服务器
+    httpd.serve_forever()
+
+
+
+协程基础
+  定义：
+    纤程,微线程,是为非抢占式多任务产生子程序的计算机
+    程序组件,协程允许不同入口点在不同位置暂停或者开始
+    简单来说,协程就是可以暂停执行的函数
+
+yield 实现生成器的跳转是协程现象的基本体现
+
+协程原理：
+  记录一个函数的上下文栈,协程调度切换时,将记录的上下文栈
+  保存起来,在切换回来时进行调取,恢复原有的执行内容,因此
+  可以从上一次执行的位置继续执行
+协程优点：
+  1.携程是一个单线程程序,占有计算机资源很少
+  2.协程无需进行切换开销
+  3.协程无需同步互斥
+协程缺点：
+  1.无法利用计算机多核资源
+
+greenlet 
+  安装：sudo pip3 install greenlet
+  
+greenlet.greenlet(fun)
+  功能：生成协程对象
+  参数：协程函数
+g.switch()
+  功能：选择要执行的协程事件
+
+
+gevent
+  安装：sudo pip3 install gevent
+  1.将协程事件封装为函数
+  2.生成协程对象
+    gevent.spawn(fun,argv)
+      功能：生成协程对象
+      参数：func 协程函数
+           argv 给协程函数传参(不定参数)
+      返回值：返回协程对象
+  3.协程回收
+    gevent.joinall(list,[timeout])
+      功能：阻塞等待回收协程
+      参数：list 要回收的协程列表
+           timeout 超时时间
+
+    gevent.sleep(): gevent阻塞,可以使协程跳转
+
+
+import gevent
+
+def foo():
+    print(12)
+    gevent.sleep(2)
+    print(34)
+
+def bar():
+    print(56)
+    gevent.sleep(3)
+    print(78)
+
+f = gevent.spawn(foo)
+g = gevent.spawn(bar)
+gevent.joinall([f,g])
+
+
+
+无论有多少协程在程序中,同一时刻只能有一个任务执行,且协程
+不会阻碍主进程的执行
+
+from gevent import monkey
+monkey.patch_all()
+修改了原有socket 代码行为,必须在socket导入前执行
+
+示例
+import gevent 
+from gevent import monkey
+monkey.patch_all() # 执行脚本插件修改阻塞行为
+from socket import * 
+
+# 创建套接字
+def server():
+    s = socket()
+    s.bind(('0.0.0.0',8888))
+    s.listen(10)
+    while True:
+        c,addr = s.accept()
+        print('Connect from',addr)
+        gevent.spawn(handle,c)
+        
+def handle(c):
+    while True:
+        data = c.recv(1024)
+        if not data:
+            break 
+        print(data.decode())
+        c.send(b'Receive message')
+server()

@@ -1,0 +1,231 @@
+2018     10.31    星期三
+
+
+
+
+文件存储
+  文件存储数据库的方式
+  1.存储路径
+    将本地文件所在的路径以字符串存储到数据库
+    优点：节省数据库空间
+    缺点：当数据库或者文件发生移动时必须要修改数据库内容
+  2.存储文件本身
+    将文件转换为二进制存储到数据库
+    优点：文件随数据库移动,数据库在文件即在
+    缺点：占用数据库空间大,存储效率低
+
+GridFS文件存储方案
+  目的：
+    更好的存储MongoDB中超过16M的大文件
+  方案解释：
+    在mongdb数据库中创建两个集合共同存储文件
+    一个存储文件信息,一个存储文件内容,两个集合相互配合
+
+    fs.files  : 存储文件信息(文件名,大小等)
+    fs.chunks : 以mongdb二进制格式存储文件内容
+
+  存储方法：
+    mongofiles  -d   dbname   put     file 
+                     数据库          要存储的文件
+    如果数据库不存在会自动创建
+    示例：
+      将img.jpg 存到grid数据库中
+      mongofiles -d grid put ./img.jpg
+  文件获取：
+    mongofiles -d dbname get file
+        file目标文件为fs.files集合文档中 filename值
+    示例：
+      从grid数据库中获取文件
+      mongofiles -d grid get ./img.jpg
+  优缺点：
+    优点：存储方便,提供了较好的命令,方便数据库移动
+    缺点：读写效率较低,不建议用来存储小文件
+
+
+mongo shell对javascript支持
+  在mongo shell下可以直接运行基本的js代码
+  游标： 获取数据库操作结果集合的量
+    var cursor=db.class0.find() 获取游标
+    cursor.next()   通过游标获取文档内容
+    cursor.hasNext()  查看是否有下一个文档
+
+
+python 模块 ------> pymongo 第三方模块
+  安装：
+    sudo pip3 install pymongo 
+  操作步骤：
+    1.创建mongodb数据库连接对象
+      conn = pymongo.MongoClient('localhost',27017)
+    2.生成要操作的数据库对象
+      db = conn.stu
+      db = conn['stu']
+    3.生成操作的集合对象
+      myset = db.class0
+      myset = db.['class0']
+    4.通过集合对象调用函数进行数据库操作
+    5.关闭数据库连接
+      conn.close()
+
+插入操作
+  insert()      插入一条或者多条文档
+  insert_many() 插入多条文档
+  insert_one()  插入一个文档
+  save()        插入一条或者多条文档,当有_id域时_id域
+                重复会替换原文档
+                  pymongo中save参数是字典不能为列表
+
+查找操作
+  find()  
+    功能：查找所有文档 
+    参数：同mongo shell 中find
+    返回：游标变量
+
+注意：pymongo 操作数据库时中所有的操作符均使用引号引起来当做
+     字符串传入
+     mongodb中 true false 使用python的 True False即可
+     null 使用python的None即可
+
+cursor游标对象属性函数
+  next()   获取下一个文档
+  limit()  显示前几条文档
+  skip()   跳过前几条显示后面内容
+  count()  统计计数
+  sort()   排序
+    pymongo     : sort([('age',1),('name',-1)])
+    mongo shell : sort({age:1,name:-1})
+  注意：当使用游标对象调用limit skip sort 等函数时,要求
+       游标对象必须为初始游标,即没有被for或next取值过
+
+  find_one()
+    功能：查找一条文档
+    参数：同find
+    返回：返回一个字典
+
+修改操作
+  update()
+  update_one()
+  update_many()
+
+删除操作
+  remove(query,multi=True)
+    默认删除多个，当multi设置False时只删除一个
+  delete_one()
+  delete_many()
+
+索引操作
+  create_index() 
+    功能：创建索引
+    参数：域名 则默认对该域创建正向索引create_index('name')
+         传入列表,列表中每个二维元组代表一个索引项
+         示例：[(age,-1)] 表示对age创建逆向索引
+    返回：索引的名称
+  list_indexes() 查看索引
+  drop_index()   删除一个索引
+  drop_indexes() 删除所有索引
+
+聚合操作
+aggregate([])
+  参数：  同mongo shell中的聚合
+  返回值：返回一个和find函数相同的游标对象
+
+文件操作
+
+GridFS文件提取
+  import gridfs 
+  1.连接数据库,生成数据库对象
+  2.生成gridfs对象
+    fs=gridfs.GridFS(db)
+  3.通过fs获取存储的文件集合
+    files=fs.find()
+  4.挑选想获取的文件进行读取
+
+from pymongo import MongoClient
+import gridfs
+
+# 获取数据库对象
+conn = MongoClient('localhost',27017)
+db = conn.grid
+
+# 获取文件集合对象
+fs = gridfs.GridFS(db)
+
+# 获取文件集
+files = fs.find()
+# print(files[0].filename)
+for file in files:
+    # filename属性获取文件名称
+    print(file.filename)
+    if file.filename == './img.jpg':
+        with open(file.filename,'wb') as f:
+            # 从数据库获取
+            data = file.read()
+            # 写入本地
+            f.write(data)
+conn.close()
+
+
+GridFS文件存储   
+  import gridfs 
+  1.连接数据库,生成数据库对象
+  2.生成gridfs对象
+    fs=gridfs.GridFS(db)
+  3.通过fs.put()函数将读取出来的文件内容存入数据库
+    fs.put(data,filename)
+    参数：data     要存入的二进制内容
+          filename 文件存入的名称
+
+from pymongo import MongoClient
+import gridfs
+
+# 获取数据库对象
+conn = MongoClient('localhost',27017)
+db = conn.grid
+
+# 获取文件集合对象
+fs = gridfs.GridFS(db)
+
+# 将本地文件读取出来写入到数据库中
+with open('img_5.jpg','rb') as f:
+    fs.put(f.read(),filename='mm.jpg')
+
+conn.close()
+
+
+
+存取二进制文件
+  存取小文件
+    import bson.binary
+    1.连接数据库,生成数据库对象和集合对象
+    2.选择要存储的文件使用rb方式读出
+    3.将读取的内容转换为mongodb的二进制存储格式
+      content=bson.binary.Binary(data)
+        功能：将bytes字串转换为mongodb二进制存储
+        参数：要转换的bytes字串
+        返回值：转换后的待存储数据
+    4.将内容写入文档,插入数据库
+
+    
+from pymongo import MongoClient
+import bson.binary
+
+conn = MongoClient('localhost',27017)
+db = conn.image 
+myset = db.flower 
+
+# 存储图片
+f = open('img_5.jpg','rb')
+data = f.read()
+# 将data转为mongodb存储格式
+content = bson.binary.Binary(data)
+
+# 插入到集合
+# myset.insert({'filename':'flower.jpg','data':content})
+
+# 文件提取
+img = myset.find_one({'filename':'flower.jpg'})
+# 将data域内容写入到本地文件
+with open('mm.jpg','wb') as f:
+    f.write(img['data'])
+print(img)
+
+conn.close()

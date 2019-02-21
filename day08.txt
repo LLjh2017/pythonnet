@@ -1,0 +1,283 @@
+2018  10.16  星期二
+
+
+
+
+http响应 (response)
+  响应格式：
+    响应行：反馈基本的响应情况
+      格式：HTTP/1.1       200       OK 
+           版本           响应码    附加信息
+        响应码： 
+          1xx  提示信息,表示请求被接收
+          2xx  响应成功
+          3xx  响应需要进一步操作,重定向
+          4xx  客户端错误
+          5xx  服务器错误
+        常见：
+          200  成功
+          404  访问内容不存在
+          401  没有访问权限
+          500  服务器未知异常  
+    响应头：对响应内容的描述
+      (键值对的形式)      
+    空行
+    响应体：具体的响应内容
+
+
+from socket import * 
+
+# 接受request 发送response
+def handleClient(connfd):
+    request=connfd.recv(4096)
+    # 将request按行切割
+    request_lines=request.splitlines()
+    # 暂时不做过多解析
+    for line in request_lines:
+        print(line)
+    try:
+        f=open('index.html')
+    except IOError:
+        response="HTTP/1.1 404 Not Found\r\n"
+        response+='\r\n' # 空行
+        response+='===Sorry not found==='
+    else:
+        response="HTTP/1.1 200 OK\r\n"
+        response+='\r\n' # 空行
+        response+=f.read()
+    finally:
+        # 无论什么结果都发送给浏览器
+        connfd.send(response.encode())
+
+# 创建套接字
+def main():
+    sockfd=socket()
+    sockfd.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+    sockfd.bind(('0.0.0.0',8800))
+    sockfd.listen(3)
+    print('Listen to the port 8800')
+    while True:
+        connfd,addr=sockfd.accept()
+        # 处理请求
+        handleClient(connfd)
+        connfd.close()
+if __name__=="__main__":
+    main()    
+
+
+
+IO   input   output
+在内存中存在数据交互的操作认为是IO操作
+  和终端交互： input print
+  和磁盘交互： read  write
+  和网络交互： recv  send
+
+IO密集型程序：
+  在程序执行中有大量的IO操作,而cpu运算较少,消耗cpu资源少
+  耗时长
+计算密集型程序(cpu密集型)：
+  程序中计算较多,IO操作较少,cpu消耗较多,运算速度快
+
+IO的类型
+  1.阻塞IO
+    阻塞IO是IO的默认形态,是效率较低的一种IO情形 
+    阻塞情况:
+      1.因为某种条件没有达成造成的函数阻塞 
+        e.g.  accept  input  recv 
+      2.处理IO的时间较长产生的阻塞行为
+        e.g.  网络传输，大文件的读写  
+  2.非阻塞IO 
+    将原本的阻塞函数通过属性的修改使其变为非阻塞
+      sockfd.setblocking(bool)
+      功能：将套接字设置为非阻塞IO
+      参数：默认True  表示套接字调用阻塞函数时为阻塞状态
+           设置为False  表示调用阻塞函数变为非阻塞状态
+      注意：非阻塞通常和循环一起使用,不断执行任务然后在检测
+           IO行为是否满足运行条件
+    * 超时检测,即设置一个最长阻塞等待时间,超过时间后不在阻塞
+        sockfd.settimeout(ssc)
+          功能：设置套接字的超时时间
+          参数：设置的时间,多少秒
+          注意：设置超时检测一定是在阻塞状态下
+  3.IO多路复用
+    定义：
+      同时监控多个IO事件,当哪个IO事件准备就绪就执行哪个IO
+      事件,以此形成可以同时操作多个IO的并发行为,避免一个IO
+      阻塞造成所有的IO都无法运行,提高IO的执行效率
+    IO准备就绪：
+      是一种IO必然要发生的临界状态
+    IO多路复用的编程实现
+      1.将IO设置为关注IO
+      2.将关注IO提交给内核监测
+      3.处理内核给我们反馈的准备就绪的IO
+    具体方案：
+      1.系统支持
+        select:  windows linus unix
+        poll  :  linus unix
+        epoll :  linus unix
+      2.python模块
+        import select
+    select 方法实现IO多路复用
+      rs,ws,xs=select(rlist,wlist,xlist[,timeout])
+      功能：监控IO事件,阻塞等待IO发生
+      参数：rlist 列表  存放我们监控等待处理的IO事件
+           wlist 列表  存放我们要主动操作的IO事件 
+           xlist 列表  想要关注的出现异常去处理的IO事件
+           timeout    超时时间 默认为阻塞设置超时后即阻塞
+                      一定的时间 
+      返回值:rs 列表 rlist中准备就绪的IO对象
+            ws 列表 wlist中准备就绪的IO对象
+            xs 列表 xlist中准备就绪的IO对象
+
+      准备就绪的IO：IO能够操作,可以进行处理执行 
+
+from select import select
+from socket import *
+
+# 创建套接字作为我们关注的IO
+s=socket()
+s.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+s.bind(('0.0.0.0',8888))
+s.listen(5)
+
+rlist=[s]
+wlist=[]
+xlist=[]
+
+while True:
+    # 提交监测我们关注的IO等待IO发生
+    rs,ws,xs=select(rlist,wlist,xlist)
+    for r in rs:
+        if r is s:
+            c,addr=r.accept()
+            print("Connect from",addr)
+            rlist.append(c)
+        else:
+            data=r.recv(1024)
+            if not data:
+                rlist.remove(r)
+                r.close()
+            else:
+                print(data.decode())
+                # 将客户端套接字放在wlist
+                wlist.append(r) 
+    for w in ws:
+        w.send(b'Receive your message')
+        wlist.remove(w)
+    for x in xs:
+        pass 
+
+  基于select IO 多路复用的tcp服务端
+    步骤：
+      1.将关注的IO放入对应类别的关注列表
+      2.通过select函数进行监控
+      3.遍历select返回值确定哪个IO事件发生
+      4.处理发生的IO事件
+    注意：
+      1.wlist中如果有IO事件则select会立即返回让你处理
+      2.在处理IO过程中不要出现死循环等长期占有
+        服务端的情况
+      3.IO多路复用占用计算机资源较少,IO效率较高
+
+  4.异步IO  
+  5.事件IO
+
+
+位运算
+  整数按照二进制位进行运算
+    &  按位与
+    |  按位或
+    ^  按位异或
+    << 左移
+    >> 右移
+
+    11     1011
+    14     1110
+
+    11&14  1010  一0则0        
+    11|14  1111  一1则1         
+    11^14  0101  相同为0不同为1  
+
+    11 << 2 101100 向左一定右侧补0  
+    14 >> 2 11     向右移动挤掉低位
+
+ 
+poll实现IO多路复用
+  1.创建poll对象
+    p=select.poll()
+    功能：创建poll对象
+    返回值：poll对象
+  2.添加注册事件
+    p.register(fd,event)
+    功能：注册要关注的IO事件
+    参数：fd 要关注的IO对象
+         event 选择要关注的事件
+      常用事件类型: POLLIN   读IO事件  rlist
+                  POLLOUT  写IO事件  wlist
+                  POLLERR  出错IO    xlist
+                  POLLHUP  连接断开事件
+                  POLLNVAL 无效数据
+    e.g. p.register(sockfd,POLLIN|POLLERR)
+
+    p.unregister(fd)
+    功能：取消对IO的关注
+    参数：IO对象或者是文件描述符
+  3.阻塞等待IO发生
+    events=p.poll()
+    功能：阻塞等待监控的IO事件发生
+    返回值：events 是一个列表,列表中每一个元素都是一个元组
+           代表一个发生的IO事件
+      [(fileno,          event),(),()......]
+      就绪IO的文件描述符  具体就绪事件
+      其中每个元组为一个就绪的IO事件
+      元组中有该IO的fileno和就绪的事件类型
+
+  需要通过文件描述符(fileno)查找对应的IO事件对象
+  {fileno:io_obj} e.g. {sockfd.fileno():sockfd}
+  4.处理具体的IO
+
+
+poll_server 步骤
+  1.创建套接字
+  2.将套接字设置为关注
+  3.创建查找字典,并维护
+  4.循环监控IO发生
+  5.处理发生的IO事件
+from socket import *
+from select import * 
+
+# 创建套接字作为我们关注的IO
+s=socket()
+s.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+s.bind(('0.0.0.0',9000))
+s.listen(5)
+
+# 创建poll对象
+p=poll()
+
+# fileno ----> IO对象的字典
+fdmap={s.fileno():s}
+
+# 注册关注的IO
+p.register(s,POLLIN | POLLERR)
+
+while True:
+    # 进行IO监控
+    events=p.poll()
+    for fd,event in events:
+        if fd==s.fileno():
+            c,addr=fdmap[fd].accept()
+            print("Connect from",addr)
+            # 添加新的关注事件
+            p.register(c,POLLIN | POLLHUP)
+            fdmap[c.fileno()]=c
+        elif event & POLLIN:
+            data=fdmap[fd].recv(1024)
+            if not data:
+                # 客户端退出从关注事件移除
+                p.unregister(fd)
+                fdmap[fd].close()
+                del fdmap[fd]
+            else:
+                print(data.decode())
+                fdmap[fd].send(b'Receive your message')
